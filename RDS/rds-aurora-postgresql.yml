@@ -6,12 +6,12 @@ Parameters:
 ###############################################################################
 
   GlobalName:
-    Description: 'Project GlobalName (example : lec-prod)'
+    Description: 'Project GlobalName'
     Type: String
-    Default: "aws-hcd" 
+    Default: "robindabird" 
 
   RDSInstanceSubName:
-    Description: "Rds Name (example for RDSInstanceSubName = '-slave'  : lec-prod-rds-aurora-slave)"
+    Description: "Rds Name (example for RDSInstanceSubName = '-slave'  : robindabird-rds-aurora-postgresql-slave)"
     Type: String
     Default: "-slave"
 
@@ -56,7 +56,7 @@ Parameters:
   DomainName:
     Description: 'DomainName'
     Type: String
-    Default: "aws-hcd"
+    Default: "robindabird"
 
 ###############################################################################
 Resources:
@@ -85,7 +85,7 @@ Resources:
         Fn::ImportValue:
           !Sub "stack-${GlobalName}-rds-cluster-RDSClusterIdentifier" # optional
       DBInstanceClass: !Ref InstanceType     # required
-      DBInstanceIdentifier: !Sub ${GlobalName}-rds-aurora${RDSInstanceSubName}
+      DBInstanceIdentifier: !Sub ${GlobalName}-rds-${RDSEngineType}${RDSInstanceSubName}
 #        DBName: !Sub ${GlobalName}     # optional
       DBParameterGroupName: !Ref RDSPAREMETERGROUP     # optional
 #      DBSecurityGroups: !Ref ClusterSecurityGroup               # optional, list of String
