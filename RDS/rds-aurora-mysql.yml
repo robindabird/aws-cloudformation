@@ -1,0 +1,119 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: 'RDS'
+
+###############################################################################
+Parameters:
+###############################################################################
+
+  GlobalName:
+    Description: 'Project GlobalName'
+    Type: String
+    Default: "robindabird"
+
+  RDSInstanceSubName:
+    Description: "Rds Name (example for RDSInstanceSubName = '-slave'  : robindabird-rds-aurora-postgresql-slave)"
+    Type: String
+    Default: "-slave"
+
+  InstanceType:
+    Type: String
+    Default: db.r4.large
+    AllowedValues:
+      - db.r4.large
+      - db.r4.xlarge
+      - db.r4.2xlarge
+    Description: 'Instance Size'
+
+  RDSEngineType:
+    Description: "RDS engine"
+    Type: "String"
+    Default: "aurora-mysql"
+    AllowedValues:
+      #- "aurora-mysql" #(for MySQL 5.7-compatible Aurora)
+      - "aurora-mysql"
+      - "aurora"
+
+  RDSEngineVersion:
+    Description: "RDS engine version"
+    Type: "String"
+    Default: "5.7.12"
+    AllowedValues:
+      # aurora-mysql5.7
+      - "5.7.12"
+      - "2.03.4"
+      - "2.03.3"
+      - "2.03.2"
+      # aurora5.6
+      - "5.6.10a"
+      - "1.19.0"
+
+  RDSParameterGroupFamily:
+    Description: "RDS engine version"
+    Type: "String"
+    Default: "aurora-mysql5.7"
+    AllowedValues:
+      # aurora-postgresql
+      - "aurora-mysql5.7"
+      - "aurora5.6"
+
+  DomainName:
+    Description: 'DomainName'
+    Type: String
+    Default: "robindabird"
+
+###############################################################################
+Resources:
+###############################################################################
+
+  RDSPAREMETERGROUP:
+    Type: AWS::RDS::DBParameterGroup
+    Properties:
+      Description: "RDS parameter group"
+      Family: !Ref RDSParameterGroupFamily
+      Parameters:
+        local_infile: "1"
+
+  RDS:
+    Type: AWS::RDS::DBInstance
+    Properties:
+#      AllocatedStorage: ""
+      AllowMajorVersionUpgrade: "false"     # optional
+      AutoMinorVersionUpgrade: "true"     # optional
+#      BackupRetentionPeriod: "35"     # optional
+      CopyTagsToSnapshot: "false"     # optional
+      DBClusterIdentifier:
+        Fn::ImportValue:
+          !Sub "stack-${GlobalName}-rds-cluster-${RDSEngineType}-RDSClusterIdentifier" # optional
+      DBInstanceClass: !Ref InstanceType     # required
+      DBInstanceIdentifier: !Sub ${GlobalName}-rds-${RDSEngineType}${RDSInstanceSubName}
+#        DBName: !Sub ${GlobalName}     # optional
+      DBParameterGroupName: !Ref RDSPAREMETERGROUP     # optional
+#      DBSecurityGroups: !Ref ClusterSecurityGroup               # optional, list of String
+      DBSubnetGroupName:
+        Fn::ImportValue:
+          !Sub "stack-${GlobalName}-rds-cluster-${RDSEngineType}-RDSSubnetGroupName"   # optional
+      Engine: !Ref RDSEngineType     # optional
+      EngineVersion: !Ref RDSEngineVersion     # optional
+#      KmsKeyId: String     # optional
+#     MasterUsername:  "postgres"      # optional
+#      MasterUserPassword: !Ref PostgresUserPassword     # optional
+#      MonitoringInterval: Integer     # optional
+#      MonitoringRoleArn: !Ref RDSMonitoringRole     # optional
+      MultiAZ: "false"     # optional
+#      OptionGroupName: String     # optional
+#      Port: !Ref DBPort     # optional
+#      PreferredBackupWindow: String     # optional
+#      PreferredMaintenanceWindow: "Mon:01:00-Mon:01:30"     # optional
+      PubliclyAccessible: "false"     # optional
+
+  RDSDNS:
+    Type: 'AWS::Route53::RecordSetGroup'
+    Properties:
+      HostedZoneName: !Sub '${DomainName}.local.'
+      Comment: CNAME targeted to RDS.
+      RecordSets:
+        - Name: !Sub '${RDS}.${DomainName}.local.'
+          Type: CNAME
+          TTL: '900'
+          ResourceRecords:
+            - !GetAtt 'RDS.Endpoint.Address'

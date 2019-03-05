@@ -1,0 +1,185 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: 'RDS - Cluster aurora MySql'
+
+###############################################################################
+Parameters:
+###############################################################################
+
+  GlobalName:
+    Description: 'Project GlobalName'
+    Type: String
+    Default: "robindabird"
+
+  DefaultDatabase:
+    Description: "Default database"
+    Type: String
+    Default: "robindabird"
+
+  DBPort:
+    Description: "RDS Network Port"
+    Type: String
+    Default: "3306"
+
+  UserPassword:
+    Description: 'Super user password'
+    Type: String
+    NoEcho: "true"
+
+  UserName:
+    Description: 'Super user name'
+    Type: String
+
+  #InstanceType:
+  #  Type: String
+  #  Default: db.r4.large
+  #  AllowedValues:
+  #    - db.r4.large
+  #    - db.r4.xlarge
+  #    - db.r4.2xlarge
+  #  Description: 'Instance Size'
+
+  DBSubnets:
+    Description: 'DB Subnets'
+    Type: List<AWS::EC2::Subnet::Id>
+
+  ClusterSecurityGroup:
+    Description : "Database security group"
+    Type: List<AWS::EC2::SecurityGroup::Id>
+
+  DomainName:
+    Description: 'DomainName'
+    Type: String
+    Default: "robindabird"
+
+  RDSEngineType:
+    Description: "RDS engine"
+    Type: "String"
+    Default: "aurora-mysql"
+    AllowedValues:
+      #- "aurora-mysql" #(for MySQL 5.7-compatible Aurora)
+      - "aurora-mysql"
+      - "aurora"
+
+  RDSEngineVersion:
+    Description: "RDS engine version"
+    Type: "String"
+    Default: "5.7.12"
+    AllowedValues:
+      # aurora-mysql5.7
+      - "5.7.12"
+      - "2.03.4"
+      - "2.03.3"
+      - "2.03.2"
+      # aurora5.6
+      - "5.6.10a"
+      - "1.19.0"
+
+  RDSParameterGroupFamily:
+    Description: "RDS engine version"
+    Type: "String"
+    Default: "aurora-mysql5.7"
+    AllowedValues:
+      # aurora-postgresql
+      - "aurora-mysql5.7"
+      - "aurora5.6"
+
+###############################################################################
+Resources:
+###############################################################################
+  RDSSUBNETGROUP:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: !Sub ${GlobalName}-rds-cluster-${RDSParameterGroupFamily}     # required
+      SubnetIds: !Ref DBSubnets               # required, list of String
+
+  RDSCLUSTERPARAMETERGROUP:
+    Type: AWS::RDS::DBClusterParameterGroup
+    Properties:
+      Description: "Cluster parameter group"     # required
+      Family: !Ref RDSParameterGroupFamily     # required
+      Parameters:
+        time_zone: "Europe/Paris"     # required
+
+  RDSCLUSTER:
+    Type: "AWS::RDS::DBCluster"
+    Properties:
+      #AvailabilityZones:
+      #  - String
+      #BacktrackWindow: Integer
+      BackupRetentionPeriod: "35"
+      DatabaseName: !Ref DefaultDatabase
+      DBClusterIdentifier: !Sub ${GlobalName}-rds-cluster-${RDSEngineType}
+      DBClusterParameterGroupName: !Ref RDSCLUSTERPARAMETERGROUP
+      DBSubnetGroupName: !Ref RDSSUBNETGROUP
+      DeletionProtection: "false"
+#      EnableCloudwatchLogsExports:
+#        - String
+      EnableIAMDatabaseAuthentication: "false"
+      Engine: !Ref RDSEngineType
+      EngineMode: "provisioned"
+      EngineVersion: !Ref RDSEngineVersion
+#      KmsKeyId: String
+      MasterUsername: !Ref UserName
+      MasterUserPassword: !Ref UserPassword
+      Port: !Ref DBPort
+#      PreferredBackupWindow: "hh24:mi-hh24:mi"
+      PreferredMaintenanceWindow: "Mon:01:00-Mon:01:30"
+      StorageEncrypted: "false"
+#      Tags:
+#        - Resource Tag
+      VpcSecurityGroupIds: !Ref ClusterSecurityGroup               # optional, list of String
+
+  RDSClusterDNSWriter:
+    Type: 'AWS::Route53::RecordSetGroup'
+    Properties:
+      HostedZoneName: !Sub
+        - '${domainName}.local.'
+        - domainName: !Ref DomainName
+      Comment: CNAME targeted to RDS Cluster.
+      RecordSets:
+        - Name: !Sub '${RDSCLUSTER}-writer.${DomainName}.local.'
+          Type: CNAME
+          TTL: '900'
+          ResourceRecords:
+            - !GetAtt 'RDSCLUSTER.Endpoint.Address'
+
+  RDSClusterDNSReader:
+    Type: 'AWS::Route53::RecordSetGroup'
+    Properties:
+      HostedZoneName: !Sub
+        - '${domainName}.local.'
+        - domainName: !Ref DomainName
+      Comment: CNAME targeted to RDS Cluster.
+      RecordSets:
+        - Name: !Sub '${RDSCLUSTER}-reader.${DomainName}.local.'
+          Type: CNAME
+          TTL: '900'
+          ResourceRecords:
+            - !GetAtt 'RDSCLUSTER.ReadEndpoint.Address'
+
+###############################################################################
+Outputs:
+###############################################################################
+  RDSClusterIdentifier:
+    Description: "RDS cluster identifier"
+    Value: !Ref RDSCLUSTER
+    Export:
+      Name: !Sub '${AWS::StackName}-RDSClusterIdentifier'
+
+  RDSClusterEndPointWriter:
+    Description: "RDS cluster endpoint writer"
+    Value: !GetAtt 'RDSCLUSTER.Endpoint.Address'
+    Export:
+      Name: !Sub '${AWS::StackName}-RDSWriterClusterDNSName'
+
+  RDSClusterEndPointReader:
+    Description: "RDS cluster endpoint reader"
+    Value: !GetAtt 'RDSCLUSTER.ReadEndpoint.Address'
+    Export:
+      Name: !Sub '${AWS::StackName}-RDSReaderClusterDNSName'
+
+  RDSSubnetGroupName:
+    Description: "RDS subnet group name"
+    Value: !Ref RDSSUBNETGROUP
+    Export:
+      Name: !Sub '${AWS::StackName}-RDSSubnetGroupName'
