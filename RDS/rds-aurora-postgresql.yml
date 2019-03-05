@@ -69,9 +69,6 @@ Resources:
       Family: !Ref RDSParameterGroupFamily
       Parameters:
         application_name: ""
-      Tags:                # optional, list of Tag
-        - Key: "Name"
-          Value: !Sub ${GlobalName}-rds-aurora-postgresql10
 
   RDS:
     Type: AWS::RDS::DBInstance
@@ -105,9 +102,6 @@ Resources:
 #      PreferredBackupWindow: String     # optional
 #      PreferredMaintenanceWindow: "Mon:01:00-Mon:01:30"     # optional
       PubliclyAccessible: "false"     # optional
-#      Tags:                # optional, list of Tag
-#        - Tag
-#      VPCSecurityGroups: !Ref ClusterSecurityGroup                # optional, list of String
 
   RDSDNS:
     Type: 'AWS::Route53::RecordSetGroup'
