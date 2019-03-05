@@ -1,0 +1,122 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: 'RDS'
+
+###############################################################################
+Parameters:
+###############################################################################
+
+  GlobalName:
+    Description: 'Project GlobalName (example : lec-prod)'
+    Type: String
+    Default: "aws-hcd" 
+
+  RDSInstanceSubName:
+    Description: "Rds Name (example for RDSInstanceSubName = '-slave'  : lec-prod-rds-aurora-slave)"
+    Type: String
+    Default: "-slave"
+
+  InstanceType:
+    Type: String
+    Default: db.r4.large
+    AllowedValues:
+      - db.r4.large
+      - db.r4.xlarge
+      - db.r4.2xlarge
+    Description: 'Instance Size'
+
+  RDSEngineType:
+    Description: "RDS engine"
+    Type: "String"
+    Default: "aurora-postgresql"
+    AllowedValues:
+      #- "aurora-mysql" #(for MySQL 5.7-compatible Aurora)
+      - "aurora-postgresql"
+
+  RDSEngineVersion:
+    Description: "RDS engine version"
+    Type: "String"
+    Default: "10.6"
+    AllowedValues:
+      # aurora-postgresql
+      - "10.6"
+      - "10.5"
+      - "10.4"
+      - "9.6.9"
+      - "9.6.8"
+
+  RDSParameterGroupFamily:
+    Description: "RDS engine version"
+    Type: "String"
+    Default: "aurora-postgresql10"
+    AllowedValues:
+      # aurora-postgresql
+      - "aurora-postgresql10"
+      - "aurora-postgresql9.6"
+
+  DomainName:
+    Description: 'DomainName'
+    Type: String
+    Default: "aws-hcd"
+
+###############################################################################
+Resources:
+###############################################################################
+
+  RDSPAREMETERGROUP:
+    Type: AWS::RDS::DBParameterGroup
+    Properties:
+      Description: "RDS parameter group"
+      Family: !Ref RDSParameterGroupFamily
+      Parameters:
+        application_name: ""
+      Tags:                # optional, list of Tag
+        - Key: "Name"
+          Value: !Sub ${GlobalName}-rds-aurora-postgresql10
+
+  RDS:
+    Type: AWS::RDS::DBInstance
+    Properties:
+#      AllocatedStorage: ""
+      AllowMajorVersionUpgrade: "false"     # optional
+      AutoMinorVersionUpgrade: "true"     # optional
+#      BackupRetentionPeriod: "35"     # optional
+      CopyTagsToSnapshot: "false"     # optional
+      DBClusterIdentifier:
+        Fn::ImportValue:
+          !Sub "stack-${GlobalName}-rds-cluster-RDSClusterIdentifier" # optional
+      DBInstanceClass: !Ref InstanceType     # required
+      DBInstanceIdentifier: !Sub ${GlobalName}-rds-aurora${RDSInstanceSubName}
+#        DBName: !Sub ${GlobalName}     # optional
+      DBParameterGroupName: !Ref RDSPAREMETERGROUP     # optional
+#      DBSecurityGroups: !Ref ClusterSecurityGroup               # optional, list of String
+      DBSubnetGroupName:
+        Fn::ImportValue:
+          !Sub "stack-${GlobalName}-rds-cluster-RDSSubnetGroupName"   # optional
+      Engine: !Ref RDSEngineType     # optional
+      EngineVersion: !Ref RDSEngineVersion     # optional
+#      KmsKeyId: String     # optional
+#     MasterUsername:  "postgres"      # optional
+#      MasterUserPassword: !Ref PostgresUserPassword     # optional
+#      MonitoringInterval: Integer     # optional
+#      MonitoringRoleArn: !Ref RDSMonitoringRole     # optional
+      MultiAZ: "false"     # optional
+#      OptionGroupName: String     # optional
+#      Port: !Ref DBPort     # optional
+#      PreferredBackupWindow: String     # optional
+#      PreferredMaintenanceWindow: "Mon:01:00-Mon:01:30"     # optional
+      PubliclyAccessible: "false"     # optional
+#      Tags:                # optional, list of Tag
+#        - Tag
+#      VPCSecurityGroups: !Ref ClusterSecurityGroup                # optional, list of String
+
+  RDSDNS:
+    Type: 'AWS::Route53::RecordSetGroup'
+    Properties:
+      HostedZoneName: !Sub '${DomainName}.local.'
+      Comment: CNAME targeted to RDS.
+      RecordSets:
+        - Name: !Sub '${RDS}.${DomainName}.local.'
+          Type: CNAME
+          TTL: '900'
+          ResourceRecords:
+            - !GetAtt 'RDS.Endpoint.Address'
