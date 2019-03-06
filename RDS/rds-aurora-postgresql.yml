@@ -1,5 +1,58 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: 'RDS'
+Description: 'RDS - aurora postgresql'
+###############################################################################
+Metadata:
+###############################################################################
+
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      -
+        Label:
+          default: "Stack dependencies configuration"
+        Parameters:
+          - RDSClusterStack
+      -
+        Label:
+          default: "Global configuration"
+        Parameters:
+          - GlobalName
+      -
+        Label:
+          default: "RDS configuration"
+        Parameters:
+          - RDSInstanceSubName
+          - RDSEngineType
+          - RDSEngineVersion
+          - RDSInstanceType
+      -
+        Label:
+          default: "RDS parameter group configuration"
+        Parameters:
+          - RDSParameterGroupFamily
+      -
+        Label:
+          default: "DNS configuration"
+        Parameters:
+          - DomainName
+    ParameterLabels:
+      RDSClusterstack:
+        default: "Name of the RDS cluster's stack"
+      GlobalName:
+        default: "Client name"
+      RDSInstanceSubName:
+        default: "Name suffix"
+      RDSEngineType:
+        default: "Engine type"
+      RDSEngineVersion:
+        default: "Engine version"
+      RDSInstanceType:
+        default: "Instance type"
+      RDSParameterGroupFamily:
+        default: "Parameter group family"
+      DomainName:
+        default: "Domain name"
+      RDSClusterStack:
+        default: "RDS cluster stack"
 
 ###############################################################################
 Parameters:
@@ -8,14 +61,14 @@ Parameters:
   GlobalName:
     Description: 'Project GlobalName'
     Type: String
-    Default: "robindabird" 
+    Default: "robindabird"
+    AllowedPattern : "[a-zA-Z0-9]+"
 
   RDSInstanceSubName:
     Description: "Rds Name (example for RDSInstanceSubName = '-slave'  : robindabird-rds-aurora-postgresql-slave)"
     Type: String
-    Default: "-slave"
 
-  InstanceType:
+  RDSInstanceType:
     Type: String
     Default: db.r4.large
     AllowedValues:
@@ -57,6 +110,12 @@ Parameters:
     Description: 'DomainName'
     Type: String
     Default: "robindabird"
+    AllowedPattern : "[a-zA-Z0-9]+"
+
+  RDSClusterStack:
+      Description: "Name of the RDS cluster's stack"
+      Type: String
+      AllowedPattern : ".*"
 
 ###############################################################################
 Resources:
@@ -80,15 +139,15 @@ Resources:
       CopyTagsToSnapshot: "false"     # optional
       DBClusterIdentifier:
         Fn::ImportValue:
-          !Sub "stack-${GlobalName}-rds-cluster-RDSClusterIdentifier" # optional
-      DBInstanceClass: !Ref InstanceType     # required
+          !Sub "${RDSClusterStack}-RDSClusterIdentifier" # optional
+      DBInstanceClass: !Ref RDSInstanceType     # required
       DBInstanceIdentifier: !Sub ${GlobalName}-rds-${RDSEngineType}${RDSInstanceSubName}
 #        DBName: !Sub ${GlobalName}     # optional
       DBParameterGroupName: !Ref RDSPAREMETERGROUP     # optional
 #      DBSecurityGroups: !Ref ClusterSecurityGroup               # optional, list of String
       DBSubnetGroupName:
         Fn::ImportValue:
-          !Sub "stack-${GlobalName}-rds-cluster-RDSSubnetGroupName"   # optional
+          !Sub "${RDSClusterStack}-RDSSubnetGroupName" # optional
       Engine: !Ref RDSEngineType     # optional
       EngineVersion: !Ref RDSEngineVersion     # optional
 #      KmsKeyId: String     # optional

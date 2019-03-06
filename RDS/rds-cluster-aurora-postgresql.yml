@@ -1,5 +1,61 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: 'RDS'
+Description: 'RDS - Cluster aurora postgresql'
+###############################################################################
+Metadata:
+###############################################################################
+
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      -
+        Label:
+          default: "Global configuration"
+        Parameters:
+          - GlobalName
+      -
+        Label:
+          default: "RDS cluster configuration"
+        Parameters:
+          - RDSClusterDefaultDatabase
+          - RDSClusterPort
+          - RDSClusterSuperUserName
+          - RDSClusterSuperUserPassword
+          - RDSClusterSubnets
+          - RDSClusterSecurityGroup
+          - RDSClusterEngineType
+          - RDSClusterEngineVersion
+      -
+        Label:
+          default: "RDS cluster parameter group configuration"
+        Parameters:
+          - RDSClusterParameterGroupFamily
+      -
+        Label:
+          default: "DNS configuration"
+        Parameters:
+          - DomainName
+    ParameterLabels:
+      GlobalName:
+        default: "Client name"
+      RDSClusterDefaultDatabase:
+        default: "Default database"
+      RDSClusterPort:
+        default: "Port number"
+      RDSClusterSuperUserName:
+        default: "Super user name"
+      RDSClusterSuperUserPassword:
+        default: "Super user password"
+      RDSClusterSubnets:
+        default: "Subnets"
+      RDSClusterSecurityGroup:
+        default: "Security group"
+      RDSClusterEngineType:
+        default: "Engine type"
+      RDSClusterEngineVersion:
+        default: "Engine version"
+      RDSClusterParameterGroupFamily:
+        default: "Parameter group family"
+      DomainName:
+        default: "Domain name"
 
 ###############################################################################
 Parameters:
@@ -7,52 +63,43 @@ Parameters:
 
   GlobalName:
     Description: 'Project GlobalName'
-    Type: String 
+    Type: String
     Default: "robindabird"
+    AllowedPattern : "[a-zA-Z0-9]+"
 
-  DefaultDatabase:
+  RDSClusterDefaultDatabase:
     Description: "Default database"
     Type: String
     Default: "robindabird"
+    AllowedPattern : "[a-zA-Z0-9]+"
 
-  DBPort:
+  RDSClusterPort:
     Description: "RDS Network Port"
     Type: String
     Default: "5432"
+    AllowedPattern : "[0-9]+"
 
-  PostgresUserPassword:
+  RDSClusterSuperUserPassword:
     Description: 'Super user password'
     Type: String
     NoEcho: "true"
+    AllowedPattern : "[a-zA-Z0-9]+"
 
-  #InstanceType:
-  #  Type: String
-  #  Default: db.r4.large
-  #  AllowedValues:
-  #    - db.r4.large
-  #    - db.r4.xlarge
-  #    - db.r4.2xlarge
-  #  Description: 'Instance Size'
+  RDSClusterSuperUserName:
+    Description: 'Super user name'
+    Type: String
+    AllowedPattern : "[a-zA-Z0-9]+"
+    default: "postgres"
 
-  DBSubnets:
+  RDSClusterSubnets:
     Description: 'DB Subnets'
     Type: List<AWS::EC2::Subnet::Id>
 
-  ClusterSecurityGroup:
+  RDSClusterSecurityGroup:
     Description : "Database security group"
     Type: List<AWS::EC2::SecurityGroup::Id>
 
-  RDSMonitoringRole:
-    Description: "Monitoring role"
-    Type: String
-    Default: "rds-monitoring-role"
-
-  DomainName:
-    Description: 'DomainName'
-    Type: String
-    Default: "robindabird"
-    
- RDSEngineType:
+  RDSClusterEngineType:
     Description: "RDS engine"
     Type: "String"
     Default: "aurora-postgresql"
@@ -60,7 +107,7 @@ Parameters:
       #- "aurora-mysql" #(for MySQL 5.7-compatible Aurora)
       - "aurora-postgresql"
 
-  RDSEngineVersion:
+  RDSClusterEngineVersion:
     Description: "RDS engine version"
     Type: "String"
     Default: "10.6"
@@ -72,7 +119,13 @@ Parameters:
       - "9.6.9"
       - "9.6.8"
 
-  RDSParameterGroupFamily:
+  DomainName:
+    Description: 'DomainName'
+    Type: String
+    Default: "robindabird"
+    AllowedPattern : "[a-zA-Z0-9]+"
+
+  RDSClusterParameterGroupFamily:
     Description: "RDS engine version"
     Type: "String"
     Default: "aurora-postgresql10"
@@ -80,6 +133,7 @@ Parameters:
       # aurora-postgresql
       - "aurora-postgresql10"
       - "aurora-postgresql9.6"
+
 ###############################################################################
 Resources:
 ###############################################################################
@@ -87,7 +141,7 @@ Resources:
     Type: AWS::RDS::DBSubnetGroup
     Properties:
       DBSubnetGroupDescription: !Sub ${GlobalName}-rds-sub     # required
-      SubnetIds: !Ref DBSubnets               # required, list of String
+      SubnetIds: !Ref RDSClusterSubnets               # required, list of String
       Tags:                # optional, list of Tag
         - Key: "Name"
           Value: !Sub ${GlobalName}-rds-subnet-group
@@ -96,7 +150,7 @@ Resources:
     Type: AWS::RDS::DBClusterParameterGroup
     Properties:
       Description: "Cluster parameter group"     # required
-      Family: !Ref RDSParameterGroupFamily     # required
+      Family: !Ref RDSClusterParameterGroupFamily     # required
       Parameters:
         application_name: ""     # required
 
@@ -107,34 +161,32 @@ Resources:
       #  - String
       #BacktrackWindow: Integer
       BackupRetentionPeriod: "35"
-      DatabaseName: !Ref DefaultDatabase
-      DBClusterIdentifier: !Sub ${GlobalName}-rds-cluster-${RDSEngineType}
+      DatabaseName: !Ref RDSClusterDefaultDatabase
+      DBClusterIdentifier: !Sub ${GlobalName}-rds-cluster-${RDSClusterEngineType}
       DBClusterParameterGroupName: !Ref RDSCLUSTERPARAMETERGROUP
       DBSubnetGroupName: !Ref RDSSUBNETGROUP
       DeletionProtection: "false"
 #      EnableCloudwatchLogsExports:
 #        - String
       EnableIAMDatabaseAuthentication: "false"
-      Engine: !Ref RDSEngineType
+      Engine: !Ref RDSClusterEngineType
       EngineMode: "provisioned"
-      EngineVersion: !Ref RDSEngineVersion
+      EngineVersion: !Ref RDSClusterEngineVersion
 #      KmsKeyId: String
-      MasterUsername: "postgres"
-      MasterUserPassword: !Ref PostgresUserPassword
-      Port: !Ref DBPort
+      MasterUsername: !Ref RDSClusterSuperUserName
+      MasterUserPassword: !Ref RDSClusterSuperUserPassword
+      Port: !Ref RDSClusterPort
 #      PreferredBackupWindow: "hh24:mi-hh24:mi"
       PreferredMaintenanceWindow: "Mon:01:00-Mon:01:30"
       StorageEncrypted: "false"
 #      Tags:
 #        - Resource Tag
-      VpcSecurityGroupIds: !Ref ClusterSecurityGroup               # optional, list of String
+      VpcSecurityGroupIds: !Ref RDSClusterSecurityGroup               # optional, list of String
 
   RDSClusterDNSWriter:
     Type: 'AWS::Route53::RecordSetGroup'
     Properties:
-      HostedZoneName: !Sub
-        - '${domainName}.local.'
-        - domainName: !Ref DomainName
+      HostedZoneName: !Sub '${DomainName}.local.'
       Comment: CNAME targeted to RDS Cluster.
       RecordSets:
         - Name: !Sub '${RDSCLUSTER}-writer.${DomainName}.local.'
@@ -146,9 +198,7 @@ Resources:
   RDSClusterDNSReader:
     Type: 'AWS::Route53::RecordSetGroup'
     Properties:
-      HostedZoneName: !Sub
-        - '${domainName}.local.'
-        - domainName: !Ref DomainName
+      HostedZoneName: !Sub '${DomainName}.local.'
       Comment: CNAME targeted to RDS Cluster.
       RecordSets:
         - Name: !Sub '${RDSCLUSTER}-reader.${DomainName}.local.'
@@ -170,13 +220,13 @@ Outputs:
     Description: "RDS cluster endpoint writer"
     Value: !GetAtt 'RDSCLUSTER.Endpoint.Address'
     Export:
-      Name: !Sub '${AWS::StackName}-RDSWriterClusterDNSName'
+      Name: !Sub '${AWS::StackName}-RDSClusterWriterDNSName'
 
   RDSClusterEndPointReader:
     Description: "RDS cluster endpoint reader"
     Value: !GetAtt 'RDSCLUSTER.ReadEndpoint.Address'
     Export:
-      Name: !Sub '${AWS::StackName}-RDSReaderClusterDNSName'
+      Name: !Sub '${AWS::StackName}-RDSClusterReaderDNSName'
 
   RDSSubnetGroupName:
     Description: "RDS subnet group name"
