@@ -11,7 +11,7 @@ Parameters:
     Default: "robindabird"
 
   RDSInstanceSubName:
-    Description: "Rds Name (example for RDSInstanceSubName = '-slave'  : robindabird-rds-aurora-postgresql-slave)"
+    Description: "Rds Name (example for RDSInstanceSubName = '-slave'  : robindabird-rds-aurora-mysql-slave)"
     Type: String
     Default: "-slave"
 
