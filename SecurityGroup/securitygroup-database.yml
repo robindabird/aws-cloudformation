@@ -1,0 +1,120 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: 'Security Group - Database'
+###############################################################################
+Metadata:
+###############################################################################
+
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      -
+        Label:
+          default: "Global configuration"
+        Parameters:
+          - GlobalName
+          - VpcId
+      -
+        Label:
+          default: "Database access configuration"
+        Parameters:
+          - DBPort
+          - VlanVPCDBA
+          - VlanVPCAdmin
+      -
+        Label:
+          default: "Stack dependencies configuration"
+        Parameters:
+          - StackSecurityGroupDatabasePool
+    ParameterLabels:
+      GlobalName:
+        default: "Client name"
+      VpcId:
+        default: "VPC"
+      VlanVPCDBA:
+        default: "DBA's Amazon IP address"
+      VlanVPCAdmin:
+        default: "Admin's Amazon IP address"
+      StackSecurityGroupDatabasePool:
+        default: "Name of the Security Group Database pool's stack"
+
+###############################################################################
+Parameters:
+###############################################################################
+
+  GlobalName:
+    Description: "Project GlobalName"
+    Type: String
+    AllowedPattern : "[a-zA-Z0-9]+"
+    Default: "robindabird"
+
+  VpcId:
+    Description: "VPC Id"
+    Type: AWS::EC2::VPC::Id
+
+  DBPort:
+    Description: "RDS Network Port"
+    Type: String
+    Default: "5432"
+    AllowedPattern: "[0-9]+"
+
+  VlanVPCDBA:
+    Description: "VLAN of your VLAN admin access, please fill in with the subnet mask"
+    Type: String
+    Default: "192.168.1.0/24"
+    AllowedPattern : "^([1-9]|[1-9]\\d|1\\d{2}|2[0-4]\\d|25[0-5])(\\.(\\d|[1-9]\\d|1\\d{2}|2[0-4]\\d|25[0-5])){3}\\/\\d+$"
+
+  VlanVPCAdmin:
+    Description: "VLAN of your VLAN dba access, please fill in with the subnet mask"
+    Type: String
+    Default: "192.168.1.0/24"
+    AllowedPattern : "^([1-9]|[1-9]\\d|1\\d{2}|2[0-4]\\d|25[0-5])(\\.(\\d|[1-9]\\d|1\\d{2}|2[0-4]\\d|25[0-5])){3}\\/\\d+$"
+
+  StackSecurityGroupDatabasePool:
+    Description: "Stack of database pool security groups"
+    Type: String
+    Default: "stack-robindabird-security-group-database-pool"
+    AllowedPattern: ".*"
+
+###############################################################################
+Resources:
+###############################################################################
+
+  DATABASESECURITYGROUP:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Sub "${GlobalName}-db-sg"
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - Description: "Database pool Access"
+          IpProtocol: "tcp"
+          FromPort: !Ref DBPort
+          ToPort: !Ref DBPort
+          SourceSecurityGroupId:
+            Fn::ImportValue:
+              !Sub "${StackSecurityGroupDatabasePool}-SecurityGroupDatabasePoolId"
+        - Description: 'Bastion DB Access'
+          IpProtocol: tcp
+          FromPort: !Ref DBPort
+          ToPort: !Ref DBPort
+          CidrIp: !Ref VlanVPCDBA
+        - Description: 'Bastion DB Access'
+          IpProtocol: tcp
+          FromPort: !Ref DBPort
+          ToPort: !Ref DBPort
+          CidrIp: !Ref VlanVPCAdmin
+      Tags:
+        - Key: "Name"
+          Value: !Sub "${GlobalName}-db-sg"
+        - Key: "CatProject"
+          Value: !Sub "${GlobalName}-Security"
+        - Key: "Env"
+          Value: !Ref GlobalName
+
+###############################################################################
+Outputs:
+###############################################################################
+
+  SecurityGroupDatabase:
+    Description: "Database security group id"
+    Value: !GetAtt DATABASESECURITYGROUP.GroupId
+    Export:
+      Name: !Sub '${AWS::StackName}-SecurityGroupDatabaseId'

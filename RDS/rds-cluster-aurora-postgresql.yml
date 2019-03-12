@@ -89,7 +89,7 @@ Parameters:
     Description: 'Super user name'
     Type: String
     AllowedPattern : "[a-zA-Z0-9]+"
-    default: "postgres"
+    Default: "postgres"
 
   RDSClusterSubnets:
     Description: 'DB Subnets'

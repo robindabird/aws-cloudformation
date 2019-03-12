@@ -1,0 +1,151 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: 'Security Group - Database'
+###############################################################################
+Metadata:
+###############################################################################
+
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      -
+        Label:
+          default: "Global configuration"
+        Parameters:
+          - GlobalName
+          - VpcId
+      -
+        Label:
+          default: "Database access configuration"
+        Parameters:
+          - DBPort
+          - VlanVPCDBA
+    ParameterLabels:
+      GlobalName:
+        default: "Client name"
+      VpcId:
+        default: "VPC"
+      VlanVPCDBA:
+        default: "DBA's Amazon IP address"
+
+###############################################################################
+Parameters:
+###############################################################################
+
+  GlobalName:
+    Description: "Project GlobalName"
+    Type: String
+    AllowedPattern : "[a-zA-Z0-9]+"
+    Default: "robindabird"
+
+  VpcId:
+    Description: "VPC Id"
+    Type: AWS::EC2::VPC::Id
+
+  DBPort:
+    Description: "RDS Network Port"
+    Type: String
+    Default: "5432"
+    AllowedPattern: "[0-9]+"
+
+  VlanVPCDBA:
+    Description: "VLAN of your VLAN database admin access, please fill in with the subnet mask"
+    Type: String
+    Default: "192.168.1.0/24"
+    AllowedPattern : "^([1-9]|[1-9]\\d|1\\d{2}|2[0-4]\\d|25[0-5])(\\.(\\d|[1-9]\\d|1\\d{2}|2[0-4]\\d|25[0-5])){3}\\/\\d+$"
+
+  StackSecurityGroupDMZ:
+    Description: "Stack of DMZ security groups"
+    Type: String
+    Default: "stack-robindabird-security-group-dmz"
+    AllowedPattern: ".*"
+
+  StackSecurityGroupWeb:
+    Description: "Stack of Web security groups"
+    Type: String
+    Default: "stack-robindabird-security-group-web"
+    AllowedPattern: ".*"
+
+###############################################################################
+Resources:
+###############################################################################
+  LOADBALANCERDATABASEPOOLSECURITYGROUP:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Sub "${GlobalName}-loadbalancer-database-pool-sg"
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - Description: "Web Access"
+          IpProtocol: "tcp"
+          FromPort: !Ref DBPort
+          ToPort: !Ref DBPort
+          SourceSecurityGroupId:
+            Fn::ImportValue:
+              !Sub "${StackSecurityGroupWeb}-SecurityGroupWebId"
+        - Description: "Bastion Admin Access"
+          IpProtocol: "tcp"
+          FromPort: !Ref DBPort
+          ToPort: !Ref DBPort
+          SourceSecurityGroupId:
+            Fn::ImportValue:
+              !Sub "${StackSecurityGroupDMZ}-SecurityGroupDMZBastionId"
+      Tags:
+        - Key: "Name"
+          Value: !Sub "${GlobalName}-loadbalancer-database-pool-sg"
+        - Key: "CatProject"
+          Value: !Sub "${GlobalName}-Security"
+        - Key: "Env"
+          Value: !Sub "${GlobalName}"
+
+
+  DATABASEPOOLSECURITYGROUP:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Sub "${GlobalName}-database-pool-sg"
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - Description: "Load balancer database pool Access"
+          IpProtocol: "tcp"
+          FromPort: !Ref DBPort
+          ToPort: !Ref DBPort
+          SourceSecurityGroupId: !GetAtt LOADBALANCERDATABASEPOOLSECURITYGROUP.GroupId
+        - Description: "Bastion Access"
+          IpProtocol: "tcp"
+          FromPort: !Ref DBPort
+          ToPort: !Ref DBPort
+          SourceSecurityGroupId:
+            Fn::ImportValue:
+              !Sub "${StackSecurityGroupDMZ}-SecurityGroupDMZBastionId"
+        - Description: "SSH Bastion Access"
+          IpProtocol: "tcp"
+          FromPort: "22"
+          ToPort: "22"
+          SourceSecurityGroupId:
+            Fn::ImportValue:
+              !Sub "${StackSecurityGroupDMZ}-SecurityGroupDMZBastionId"
+        - Description: "SSH Bastion DBA Access"
+          IpProtocol: "tcp"
+          FromPort: "22"
+          ToPort: "22"
+          CidrIp: !Ref VlanVPCDBA
+      Tags:
+        - Key: "Name"
+          Value: !Sub "${GlobalName}-database-pool-sg"
+        - Key: "CatProject"
+          Value: !Sub "${GlobalName}-Security"
+        - Key: "Env"
+          Value: !Ref GlobalName
+
+###############################################################################
+Outputs:
+###############################################################################
+
+  SecurityGroupDatabasePoolLoadBalancer:
+    Description: "Load balancer Database pool security group id"
+    Value: !GetAtt LOADBALANCERDATABASEPOOLSECURITYGROUP.GroupId
+    Export:
+      Name: !Sub '${AWS::StackName}-SecurityGroupDatabaseLoadBalancerId'
+
+  SecurityGroupDatabasePool:
+    Description: "Database pool security group id"
+    Value: !GetAtt DATABASEPOOLSECURITYGROUP.GroupId
+    Export:
+      Name: !Sub '${AWS::StackName}-SecurityGroupDatabasePoolId'

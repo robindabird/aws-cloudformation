@@ -1,0 +1,121 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: 'Security Group - Web'
+
+###############################################################################
+Metadata:
+###############################################################################
+
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      -
+        Label:
+          default: "Global configuration"
+        Parameters:
+          - GlobalName
+          - VpcId
+      -
+        Label:
+          default: "Stack dependencies configuration"
+        Parameters:
+          - StackSecurityGroupDMZ
+    ParameterLabels:
+      GlobalName:
+        default: "Client name"
+      VpcId:
+        default: "VPC"
+      StackSecurityGroupDMZ:
+        default: "Name of the Security Group DMZ's stack"
+
+###############################################################################
+Parameters:
+###############################################################################
+
+  GlobalName:
+    Description: 'Project GlobalName'
+    Type: String
+    Default: "robindabird"
+    AllowedPattern : "[a-zA-Z0-9]+"
+
+  VpcId:
+    Description: 'VPC Id'
+    Type: AWS::EC2::VPC::Id
+
+  StackSecurityGroupDMZ:
+    Description: "Stack of DMZ security groups"
+    Type: String
+    Default: "stack-robindabird-security-group-dmz"
+    AllowedPattern: ".*"
+
+###############################################################################
+Resources:
+###############################################################################
+
+  WEBSECURITYGROUP:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Sub ${GlobalName}-web-sg
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - Description: 'ALB/ELB HTTP Access'
+          IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId:
+            Fn::ImportValue:
+              !Sub "${StackSecurityGroupDMZ}-SecurityGroupDMZLoadBalancerId"
+        - Description: 'ALB/ELB HTTPS Access'
+          IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          SourceSecurityGroupId:
+            Fn::ImportValue:
+              !Sub "${StackSecurityGroupDMZ}-SecurityGroupDMZLoadBalancerId"
+      Tags:
+        - Key: Name
+          Value: !Sub ${GlobalName}-web-sg
+        - Key: CatProject
+          Value: !Sub ${GlobalName}-Security
+        - Key: Env
+          Value: !Sub ${GlobalName}
+
+  NFSSECURITYGROUP:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Sub ${GlobalName}-nfs-sg
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - Description: 'Web NFS Access'
+          IpProtocol: tcp
+          FromPort: 2049
+          ToPort: 2049
+          SourceSecurityGroupId: !GetAtt WEBSECURITYGROUP.GroupId
+        - Description: 'Bastion NFS Access'
+          IpProtocol: tcp
+          FromPort: 2049
+          ToPort: 2049
+          SourceSecurityGroupId:
+            Fn::ImportValue:
+              !Sub "${StackSecurityGroupDMZ}-SecurityGroupDMZBastionId"
+      Tags:
+        - Key: Name
+          Value: !Sub ${GlobalName}-nfs-sg
+        - Key: CatProject
+          Value: !Sub ${GlobalName}-Security
+        - Key: Env
+          Value: !Sub ${GlobalName}
+
+###############################################################################
+Outputs:
+###############################################################################
+
+  SecurityGroupWeb:
+    Description: "Web security group id"
+    Value: !GetAtt WEBSECURITYGROUP.GroupId
+    Export:
+      Name: !Sub '${AWS::StackName}-SecurityGroupWebId'
+
+  SecurityGroupNFS:
+    Description: "NFS security group id"
+    Value: !GetAtt NFSSECURITYGROUP.GroupId
+    Export:
+      Name: !Sub '${AWS::StackName}-SecurityGroupNFSId'

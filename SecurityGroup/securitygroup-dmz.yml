@@ -1,0 +1,136 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: 'Security Group - DMZ'
+###############################################################################
+Metadata:
+###############################################################################
+
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      -
+        Label:
+          default: "Global configuration"
+        Parameters:
+          - GlobalName
+          - VpcId
+      -
+        Label:
+          default: "Bastion access configuration"
+        Parameters:
+          - CompanyWanIpAddress
+          - VlanVPCAdmin
+          - BackupAdminIpAddress
+    ParameterLabels:
+      GlobalName:
+        default: "Client name"
+      VpcId:
+        default: "VPC"
+      CompanyWanIpAddress:
+        default: "Company's WAN IP address"
+      VlanVPCAdmin:
+        default: "Admin's Amazon IP address"
+      BackupAdminIpAddress:
+        default: "Admin's Amazon Backup IP address"
+
+###############################################################################
+Parameters:
+###############################################################################
+
+  GlobalName:
+    Description: 'Project GlobalName'
+    Type: String
+    Default: "robindabird"
+    AllowedPattern : "[a-zA-Z0-9]+"
+
+  CompanyWanIpAddress:
+    Description: 'Address IP of your company, please fill in with the subnet mask'
+    Type: String
+    Default: "192.168.1.1/32"
+    AllowedPattern : "^([1-9]|[1-9]\\d|1\\d{2}|2[0-4]\\d|25[0-5])(\\.(\\d|[1-9]\\d|1\\d{2}|2[0-4]\\d|25[0-5])){3}\\/\\d+$"
+
+  VlanVPCAdmin:
+    Description: 'VLAN of your VPC admin, please fill in with the subnet mask'
+    Type: String
+    Default: "192.168.1.0/24"
+    AllowedPattern : "^^([1-9]|[1-9]\\d|1\\d{2}|2[0-4]\\d|25[0-5])(\\.(\\d|[1-9]\\d|1\\d{2}|2[0-4]\\d|25[0-5])){3}\\/\\d+$"
+
+  BackupAdminIpAddress:
+    Description: 'IP address of your backup machine, please fill in with the mask'
+    Type: String
+    Default: "192.168.1.1/32"
+    AllowedPattern : "^([1-9]|[1-9]\\d|1\\d{2}|2[0-4]\\d|25[0-5])(\\.(\\d|[1-9]\\d|1\\d{2}|2[0-4]\\d|25[0-5])){3}\\/\\d+$"
+
+  VpcId:
+    Description: 'VPC Id'
+    Type: AWS::EC2::VPC::Id
+
+###############################################################################
+Resources:
+###############################################################################
+  LOADBALANCERSECURITYGROUP:
+      Type: AWS::EC2::SecurityGroup
+      Properties:
+        GroupDescription: !Sub ${GlobalName}-elb-sg
+        VpcId: !Ref VpcId
+        SecurityGroupIngress:
+          - Description: HTTP Access
+            IpProtocol: tcp
+            FromPort: 80
+            ToPort: 80
+            CidrIp: 0.0.0.0/0
+          - Description: HTTPS Access
+            IpProtocol: tcp
+            FromPort: 443
+            ToPort: 443
+            CidrIp: 0.0.0.0/0
+        Tags:
+          - Key: Name
+            Value: !Sub ${GlobalName}-db-sg
+          - Key: CatProject
+            Value: !Sub ${GlobalName}-Security
+          - Key: Env
+            Value: !Sub ${GlobalName}
+
+  BASTIONSECURITYGROUP:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Sub ${GlobalName}-bastion-sg
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - Description: 'SSH/Business Access'
+          IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref CompanyWanIpAddress # to_change
+        - Description: 'SSH/Admin VPC Access'
+          IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref VlanVPCAdmin
+        - Description: 'Admin VPC Ping'
+          IpProtocol: icmp
+          FromPort: -1
+          ToPort: -1
+          CidrIp: !Ref BackupAdminIpAddress
+      Tags:
+        - Key: Name
+          Value: !Sub ${GlobalName}-bastion-sg
+        - Key: CatProject
+          Value: !Sub ${GlobalName}-Security
+        - Key: Env
+          Value: !Sub ${GlobalName}
+
+###############################################################################
+Outputs:
+###############################################################################
+
+  SecurityGroupLoadBalancer:
+    Description: "Load balancer security group id"
+    Value: !GetAtt LOADBALANCERSECURITYGROUP.GroupId
+    Export:
+      Name: !Sub '${AWS::StackName}-SecurityGroupDMZLoadBalancerId'
+
+  SecurityGroupBastion:
+    Description: "Bastion security group id"
+    Value: !GetAtt BASTIONSECURITYGROUP.GroupId
+    Export:
+      Name: !Sub '${AWS::StackName}-SecurityGroupDMZBastionId'
