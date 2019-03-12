@@ -1,0 +1,86 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: 'Security Group - Modify'
+###############################################################################
+Metadata:
+###############################################################################
+
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      -
+        Label:
+          default: "Global configuration"
+        Parameters:
+          - GlobalName
+      -
+        Label:
+          default: "Security group access configuration"
+        Parameters:
+          - SecurityGroupId
+          - SGIpProtocol
+          - SGFromPort
+          - SGToPort
+          - SGCidrIp
+    ParameterLabels:
+      GlobalName:
+        default: "Client name"
+      SGIpProtocol:
+        default: "Protocol"
+      SecurityGroupId:
+        default: "Security group"
+      SGFromPort:
+        default: "Source port"
+      SGToPort:
+        default: "Destination port"
+      SGCidrIp:
+        default: "CIDR IP value"
+
+###############################################################################
+Parameters:
+###############################################################################
+
+  GlobalName:
+    Description: "Project GlobalName"
+    Type: String
+    AllowedPattern : "[a-zA-Z0-9]+"
+    Default: "robindabird"
+
+  SGFromPort:
+    Description: "Source Port"
+    Type: String
+    Default: "5432"
+    AllowedPattern: "[0-9]+"
+
+  SGToPort:
+    Description: "Destination Port"
+    Type: String
+    Default: "5432"
+    AllowedPattern: "[0-9]+"
+
+  SGCidrIp:
+    Description: "Security group cidr ip"
+    Type: String
+    Default: "192.168.1.0/24"
+    AllowedPattern : "^([1-9]|[1-9]\\d|1\\d{2}|2[0-4]\\d|25[0-5])(\\.(\\d|[1-9]\\d|1\\d{2}|2[0-4]\\d|25[0-5])){3}\\/\\d+$"
+
+  SGIpProtocol:
+    Description: "Ip Protocol"
+    Type: String
+    Default: "tcp"
+    AllowedPattern : "[a-zA-Z0-9]+"
+
+  SecurityGroupId:
+    Description : "Database security group"
+    Type: AWS::EC2::SecurityGroup::Id
+
+###############################################################################
+Resources:
+###############################################################################
+
+  SecurityGroupRedisIngress:
+    Type: 'AWS::EC2::SecurityGroupIngress'
+    Properties:
+      GroupId: !Ref SecurityGroupId
+      IpProtocol: !Ref SGIpProtocol
+      FromPort: !Ref SGFromPort
+      ToPort: !Ref SGToPort
+      CidrIp: !Ref SGCidrIp
