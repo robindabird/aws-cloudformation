@@ -84,7 +84,7 @@ Resources:
             CidrIp: 0.0.0.0/0
         Tags:
           - Key: Name
-            Value: !Sub ${GlobalName}-db-sg
+            Value: !Sub ${GlobalName}-elb-sg
           - Key: CatProject
             Value: !Sub ${GlobalName}-Security
           - Key: Env
